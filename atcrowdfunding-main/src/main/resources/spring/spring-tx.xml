@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:mybatis-spring="http://mybatis.org/schema/mybatis-spring"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xsi:schemaLocation="http://mybatis.org/schema/mybatis-spring http://mybatis.org/schema/mybatis-spring-1.2.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.3.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.3.xsd">
+
+	<context:property-placeholder location="classpath:/config/jdbc.properties" />
+
+
+	<!-- 阿里的数据库连接池Druid：获取数据库的操作 -->
+	<bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource">
+		<property name="username" value="${datasource.username}"></property>
+		<property name="password" value="${datasource.password}"></property>
+		<property name="url" value="${datasource.url}"></property>
+		<property name="driverClassName" value="${datasource.driver}"></property>
+	</bean>
+
+	<!-- 事务管理器：控制着数据源 -->
+	<bean id="tm" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource"></property>
+	</bean>
+
+	<!-- 配置版的事务切面 -->
+	<aop:config>
+		<!-- *任意返回值 service包下 ..service下的任意包 *任意类 .*任意方法 (..)任意参数 -->
+		<aop:pointcut expression="execution(* com.atguigu.atcrowdfunding..service..*.*(..))" id="point" />
+		<!-- advice-ref：关联增强事务 pointcut-ref：关联事务的切入点 -->
+		<aop:advisor advice-ref="tx" pointcut-ref="point" />
+	</aop:config>
+
+	<!-- 配置事务增强 -->
+	
+	<!-- 
+		事务：将执行一系列操作，作为一个原子，要么都成功，要么都失败。
+		事务特性：
+			A:原子性，多个sql执行，不可分割的。
+			C:一致性，执行的事务结果必须与业务逻辑是一致的
+			I:隔离性，多个事务执行是隔离开的，保证不互相影响
+			D:持久性，事务执行提交后，数据不能更改，保存数据不丢失
+		隔离性： 事务隔离级别，用于解决数据操作过程中可能产生的问题（ 数据丢失，脏读，不可重复读，幻读）
+			1 未提交读
+			2 提交读
+			4 可重复读
+			8 序列化，不可并发
+			
+			isolation="DEFAULT"  表示与数据库默认事务隔离级别一致。
+				mysql默认： 4
+				oracle默认：2
+				
+			数据库命令行以及jdbc操作数据库，默认都是自动提交事务的。
+			set autocommit=false  只对当前窗口起作用。
+			数据库支持多并发操作。Mysql默认最大连接数量：max_connections=100   最多101个，其中一个是给超级管理员用的。
+			
+			
+			事务回滚策略：
+				Spring声明式事务：默认对运行期RuntimeException异常回滚事务的。对编译期Exception异常不回滚事务的。
+				
+				
+			select * from t_user where id=2 for update;	 行级锁。也称为悲观锁。 安全，效率低，不建议使用。
+				乐观锁：在数据库中增加额外版本字段。每一次对数据操作，版本号自动+1
+	 -->
+	<tx:advice transaction-manager="tm" id="tx">
+		<!-- 事务属性 -->
+		<tx:attributes>
+			<!-- 所有 方法都是事务 -->
+			<tx:method name="*" />
+			<tx:method name="get*" read-only="true" />
+			<tx:method name="list*" read-only="true" />
+
+			<!--增删改 -->
+			<!-- 脏读，不可重复读，幻读 -->
+			<tx:method name="save*" propagation="REQUIRED" isolation="DEFAULT" timeout="5000" rollback-for="java.lang.Exception" />
+			<tx:method name="update*" propagation="REQUIRED" isolation="DEFAULT" timeout="5000" rollback-for="java.lang.Exception" />
+			<tx:method name="delete*" propagation="REQUIRED" isolation="DEFAULT" timeout="5000" rollback-for="java.lang.Exception" />
+		</tx:attributes>
+	</tx:advice>
+
+</beans>
